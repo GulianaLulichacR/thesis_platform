@@ -1,0 +1,68 @@
+services:
+
+  # ─── FastAPI Backend ───────────────────────────────────────────────────────
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+      - ./vector_db:/app/vector_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # ─── Ollama (FREE local LLM — fallback when Gemini quota is exceeded) ──────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11435:11434"     # Exposed on host as 11435 to avoid conflicts
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # Resource limits — adjust to your hardware
+    # Uncomment deploy section to limit RAM usage:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 8g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s   # Ollama takes time to initialise
+
+  # ─── Ollama Model Pre-pull (runs once, pulls default model) ───────────────
+  # Uncomment this service to automatically pull a model on first startup.
+  # Change the MODEL env var to your preferred model.
+  #
+  # ollama-pull:
+  #   image: curlimages/curl:latest
+  #   environment:
+  #     - MODEL=phi3:mini          # CPU-friendly (~2.5 GB), good for low-RAM
+  #     # - MODEL=llama3           # Best quality (~6 GB VRAM recommended)
+  #     # - MODEL=mistral          # Good balance of speed and quality
+  #   depends_on:
+  #     ollama:
+  #       condition: service_healthy
+  #   command: >
+  #     sh -c "curl -s -X POST http://ollama:11434/api/pull
+  #            -H 'Content-Type: application/json'
+  #            -d '{\"name\": \"'$$MODEL'\"}'
+  #            && echo 'Model pull complete'"
+  #   restart: "no"
+
+volumes:
+  ollama_data:
+    driver: local
