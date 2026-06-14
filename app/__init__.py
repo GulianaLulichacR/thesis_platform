@@ -1,1 +1,0 @@
-# Thesis Review AI Platform
