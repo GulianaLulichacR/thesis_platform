@@ -12,4 +12,4 @@ def render_summary_charts(summary: dict) -> None:
     ]
     fig = go.Figure(data=[go.Bar(x=categories, y=values)])
     fig.update_layout(template="plotly_dark", height=320, margin=dict(l=20, r=20, t=20, b=20))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig,  width=True)
