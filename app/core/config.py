@@ -44,21 +44,20 @@ class Settings(BaseSettings):
 
     # ─── Ollama (LOCAL / FREE) ────────────────────────────────────────────────
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3"
+    OLLAMA_MODEL: str = "gemma2:2b"
     OLLAMA_ENABLED: bool = True
 
     # ─── HuggingFace (FREE TIER) ──────────────────────────────────────────────
-    HUGGINGFACE_API_KEY: str = ""  # Optional: free tier works without key (rate-limited)
-    HUGGINGFACE_MODEL: str = "mistralai/Mistral-7B-Instruct-v0.3"
-    HUGGINGFACE_ENABLED: bool = False  # Enable explicitly when key is set
+    HUGGINGFACE_API_KEY: str = ""
+    HUGGINGFACE_MODEL: str = "microsoft/phi-2"  # ✅ Modelo más ligero
+    HUGGINGFACE_ENABLED: bool = False
 
     # ─── Provider Priority (fallback chain order) ─────────────────────────────
     # First available provider in this list is used; falls back on quota/error
-    LLM_PROVIDER_PRIORITY: list[str] = ["gemini", "ollama", "huggingface"]
-
+    LLM_PROVIDER_PRIORITY: list[str] = ["ollama", "gemini", "huggingface"]  # ✅ Ollama primero
     # ─── Default LLM (used when provider not specified) ───────────────────────
     DEFAULT_LLM_PROVIDER: str = "gemini"
-    DEFAULT_LLM_MODEL: str = "gemini-1.5-flash"
+    DEFAULT_LLM_MODEL: str = "gemini-1.5-flash-8b"
 
     # ─── AI Detection (free/freemium with safe fallback) ──────────────────────
     AI_DETECTION_PROVIDER: str = "mock"
