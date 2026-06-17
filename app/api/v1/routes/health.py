@@ -20,7 +20,7 @@ from app.core.logging import get_logger
 from app.services.llm.cache import get_llm_cache
 from app.services.llm.factory import LLMFactory
 
-router = APIRouter(prefix="/health", tags=["Health"])
+router = APIRouter(tags=["Health"])
 logger = get_logger(__name__)
 settings = get_settings()
 

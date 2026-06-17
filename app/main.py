@@ -1,85 +1,70 @@
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
+import time
+print("Iniciando aplicación...")
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.v1.router import v1_router
-from app.core.config import get_settings
-from app.core.exceptions import (
-    ThesisPlatformError,
-    http_exception_handler,
-    platform_exception_handler,
-    unhandled_exception_handler,
-    validation_exception_handler,
+print("Imports completados")
+
+from app.database import engine, Base
+from app.api.v1 import v1_router  
+
+# Crear tablas con timeout/debug
+try:
+    print("Inicializando base de datos...")
+    start = time.time()
+    Base.metadata.create_all(bind=engine)
+    print(f"BD lista en {time.time() - start:.2f}s")
+except Exception as e:
+    print(f"Error BD: {e}")
+
+
+app = FastAPI(title="Thesis Platform API")
+
+print("Configurando middleware...")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-from app.core.logging import get_logger, setup_logging
 
-settings = get_settings()
-logger = get_logger(__name__)
+print("Incluyendo routers...")
+app.include_router(v1_router, prefix="/api/v1")
 
+@app.get("/")
+def root():
+    print("Alguien accedió a /")
+    return {"message": "Thesis Platform API", "docs": "/docs"}
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Startup / shutdown lifecycle."""
-    setup_logging()
-    settings.ensure_dirs()
-    logger.info(
-        "Thesis Review AI Platform starting",
-        extra={"version": settings.APP_VERSION, "env": settings.ENVIRONMENT},
-    )
-    yield
-    logger.info("Thesis Review AI Platform shutting down.")
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
+print("Aplicación lista")
 
-def create_app() -> FastAPI:
-    app = FastAPI(
-        title=settings.APP_NAME,
-        version=settings.APP_VERSION,
-        description=(
-            "Production-ready AI platform for academic thesis review. "
-            "Supports multi-LLM providers: Gemini, OpenAI, Claude, Ollama."
-        ),
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
-        lifespan=lifespan,
+# FIX: Handlers de excepciones con tipos correctos
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Error interno: {str(exc)}"},
     )
 
-    # ─── CORS ─────────────────────────────────────────────────────────────────
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
     )
 
-    # ─── Exception Handlers ───────────────────────────────────────────────────
-    app.add_exception_handler(ThesisPlatformError, platform_exception_handler)
-    app.add_exception_handler(HTTPException, http_exception_handler)
-    app.add_exception_handler(RequestValidationError, validation_exception_handler)
-    app.add_exception_handler(Exception, unhandled_exception_handler)
-
-    # ─── Routers ──────────────────────────────────────────────────────────────
-    app.include_router(v1_router)
-
-    # ─── Health Check ─────────────────────────────────────────────────────────
-    @app.get("/health", tags=["Health"], summary="Platform health check")
-    async def health() -> dict:
-        return {
-            "status": "ok",
-            "version": settings.APP_VERSION,
-            "environment": settings.ENVIRONMENT,
-        }
-
-    @app.get("/", include_in_schema=False)
-    async def root() -> JSONResponse:
-        return JSONResponse({"message": f"Welcome to {settings.APP_NAME} v{settings.APP_VERSION}"})
-
-    return app
-
-
-app = create_app()
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc)},
+    )

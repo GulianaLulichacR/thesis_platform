@@ -21,7 +21,7 @@ from app.services.document.docx_loader import DOCXLoader
 from app.services.document.pdf_loader import PDFLoader
 from app.services.storage.local_storage import LocalStorageService
 
-router = APIRouter(prefix="/analysis", tags=["Analysis"])
+router = APIRouter(tags=["Analysis"])
 logger = get_logger(__name__)
 
 _storage = LocalStorageService()

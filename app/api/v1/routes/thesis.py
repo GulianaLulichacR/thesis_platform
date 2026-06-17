@@ -1,5 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile, status
 from fastapi.responses import FileResponse
+from datetime import datetime
 
 from app.core.exceptions import UnsupportedFileTypeError
 from app.core.logging import get_logger
@@ -10,7 +11,7 @@ from app.services.storage.local_storage import LocalStorageService
 from app.services.tasks import FastAPITaskService
 from app.services.analysis.background_tasks import run_ai_analysis, run_citation_validation
 
-router = APIRouter(prefix="/thesis", tags=["Thesis"])
+router = APIRouter(tags=["Thesis"])
 logger = get_logger(__name__)
 
 _storage = LocalStorageService()
@@ -70,11 +71,16 @@ async def upload_thesis(
 
     # Initialize metadata sidecar
     initial_metadata = {
+        "id": meta["file_id"],
         "thesis_id": meta["file_id"],
         "parent_thesis_id": parent_thesis_id,
         "version": version,
         "ai_analysis_status": ProcessingStatus.PENDING.value,
         "citation_check_status": ProcessingStatus.PENDING.value,
+        "file_name": meta["original_filename"],
+        "file_size": meta["size_bytes"],
+        "file_type": ext,
+        "uploaded_at": datetime.utcnow().isoformat() + "Z"
     }
     await _storage.save_metadata(meta["file_id"], initial_metadata)
 
@@ -96,6 +102,33 @@ async def upload_thesis(
         pages=None,
     )
 
+
+@router.get("/", summary="List all uploaded theses")
+async def list_thesis():
+    """Listar todas las tesis"""
+    return await _storage.list_metadata()
+
+
+@router.delete("/{thesis_id}", summary="Delete a thesis")
+async def delete_thesis(thesis_id: str):
+    """Eliminar tesis"""
+    try:
+        # Get metadata to find extension
+        meta = await _storage.get_metadata(thesis_id)
+        ext = meta.get("file_type", "pdf")
+        
+        # Delete file
+        _storage.delete(thesis_id, ext)
+        
+        # Delete metadata
+        meta_path = _storage.get_metadata_path(thesis_id)
+        if meta_path.exists():
+            meta_path.unlink()
+            
+        return {"message": "Tesis eliminada", "id": thesis_id}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.post(
     "/template/upload",

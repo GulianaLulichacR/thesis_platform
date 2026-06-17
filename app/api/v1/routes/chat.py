@@ -8,7 +8,7 @@ from app.services.document.pdf_loader import PDFLoader
 from app.services.document.docx_loader import DOCXLoader
 from app.core.exceptions import StorageError
 
-router = APIRouter(prefix="/chat", tags=["Chat"])
+router = APIRouter(tags=["Chat"])
 logger = get_logger(__name__)
 
 _storage = LocalStorageService()

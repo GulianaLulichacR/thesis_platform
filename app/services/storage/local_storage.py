@@ -101,3 +101,24 @@ class LocalStorageService:
         metadata.update(updates)
         await self.save_metadata(file_id, metadata)
         return metadata
+
+    async def list_metadata(self) -> list[dict]:
+        results = []
+        for path in self._base_dir.glob("*_meta.json"):
+            try:
+                async with aiofiles.open(path, "r", encoding="utf-8") as f:
+                    content = await f.read()
+                    data = json.loads(content)
+                    
+                    # Fix backward compatibility for old metadata
+                    if "id" not in data:
+                        data["id"] = data.get("thesis_id", path.name.replace("_meta.json", ""))
+                    if "file_name" not in data:
+                        data["file_name"] = data.get("title", f"Thesis {data['id'][:8]}")
+                        
+                    results.append(data)
+            except Exception as e:
+                logger.error(f"Error reading metadata {path}: {e}")
+        # Sort by uploaded_at desc if available
+        results.sort(key=lambda x: x.get("uploaded_at", ""), reverse=True)
+        return results

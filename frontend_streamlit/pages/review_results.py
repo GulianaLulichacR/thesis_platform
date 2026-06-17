@@ -56,7 +56,7 @@ with st.form("review_form"):
     submitted = st.form_submit_button(
         "▶ Ejecutar revisión completa",
         type="primary",
-         width=True,
+         width="stretch",
     )
 
 # ─────────────────────────────────────────────────────────────
